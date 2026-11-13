@@ -1,0 +1,32 @@
+name: Quota Audit (temp)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test models with real Secret key
+        env:
+          KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          BASE="https://dashscope.aliyuncs.com/compatible-mode/v1"
+          echo "=== key length: ${#KEY} , prefix: ${KEY:0:6} ==="
+          echo "=== /models list (model ids this key can use) ==="
+          curl -s --max-time 60 "$BASE/models" -H "Authorization: Bearer $KEY" \
+            | grep -o '"id":"[^"]*"' | sed 's/"id":"//;s/"//' | sort > /tmp/avail.txt
+          echo "total available: $(wc -l < /tmp/avail.txt)"
+          echo "--- first 80 ---"
+          head -80 /tmp/avail.txt
+          echo "--- grep target families ---"
+          grep -iE "qwen-plus|coder|minimax|deepseek|kimi|glm|qwen3|qwen-max|qwen-mt|tongyi" /tmp/avail.txt || echo "(none matched)"
+          echo
+          echo "=== per-model chat test ==="
+          for M in kimi-k3.1-pro qwen-plus-2025-12-01 qwen-plus qwen-plus-latest qwen3-coder-flash-2025-07-28 MiniMax-M2.5 minimax-m2.5 deepseek-v4-pro qwen-plus-2025-04-28 qwen3.5-plus-2026-02-15 qwen-max glm-5 qwen-mt-flash; do
+            RESP=$(curl -s --max-time 60 -w " HTTP:%{http_code}" "$BASE/chat/completions" \
+              -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+              -d "{\"model\":\"$M\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":8}")
+            echo "[$M] -> $RESP"
+            echo
+          done
