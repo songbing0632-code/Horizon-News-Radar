@@ -195,6 +195,7 @@ class AIConfig(BaseModel):
 
     provider: AIProvider
     provider_chain: Optional[str] = None
+    model_chain: Optional[str] = None
     model: str
     base_url: Optional[str] = None
     api_key_env: str

@@ -740,6 +740,17 @@ def create_ai_client(config: AIConfig) -> AIClient:
     Raises:
         ValueError: If provider is not supported
     """
+    if config.model_chain:
+        # Same-provider model rotation: try each model in order when the
+        # previous one fails with a retryable error (quota exhausted, 429...).
+        names = [m.strip() for m in config.model_chain.split(",") if m.strip()]
+        if config.model not in names:
+            names = [config.model] + names
+        chain_configs = [
+            config.model_copy(update={"model": name, "model_chain": None})
+            for name in names
+        ]
+        return ChainedAIClient(chain_configs)
     if config.provider_chain:
         return _create_chained_client(config)
     return _create_single_client(config)
